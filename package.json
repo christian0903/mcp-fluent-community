@@ -1,0 +1,38 @@
+{
+  "name": "mcp-fluent-community",
+  "version": "0.1.0",
+  "description": "Serveur MCP en lecture seule pour Fluent Community (WordPress) — expose espaces, posts et commentaires à un client MCP (Claude Desktop, Claude Code).",
+  "license": "MIT",
+  "author": "Christian Vanhenten",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/christian0903/mcp-fluent-community.git"
+  },
+  "type": "module",
+  "bin": {
+    "mcp-fluent-community": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.0",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
