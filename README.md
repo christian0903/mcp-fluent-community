@@ -8,6 +8,40 @@ Cas d'usage : retrouver, citer et travailler depuis Claude le contenu publié da
 
 ---
 
+## Démarrage rapide (5 minutes)
+
+Si vous avez déjà Node 20+, un site WordPress avec Fluent Community, et un Application Password sous la main :
+
+```bash
+# 1. Cloner et installer
+git clone https://github.com/christian0903/mcp-fluent-community.git
+cd mcp-fluent-community
+npm install
+npm run build
+
+# 2. Configurer
+cp .env.example .env
+# Éditez .env avec votre site, votre login WP et votre Application Password
+
+# 3. Valider
+npx tsx scripts/smoke-test.ts
+# Sortie attendue : 6/6 OK
+
+# 4. Brancher dans Claude Code (chemin absolu obligatoire)
+claude mcp add fluent-community \
+  --scope user \
+  -e FC_SITE_URL=https://votre-site.tld \
+  -e FC_USERNAME=votre-login-wp \
+  -e FC_APP_PASSWORD="xxxx xxxx xxxx xxxx xxxx xxxx" \
+  -- node "$(pwd)/dist/index.js"
+```
+
+Puis redémarrez votre session Claude — les outils apparaissent en `mcp__fluent-community__*`.
+
+> Vous n'avez jamais utilisé d'Application Password WordPress ? Voyez la section [Créer un Application Password](#créer-un-application-password) plus bas.
+
+---
+
 ## Outils exposés
 
 | Outil MCP | Endpoint REST sous-jacent | Description |
@@ -177,6 +211,44 @@ scripts/
 - Auteur : `feed.xprofile.display_name` / `feed.xprofile.username`.
 - Espace : `feed.space.title` / `feed.space.slug`.
 - Permalink : `feed.permalink` (déjà absolu, ne pas reconstruire).
+
+---
+
+## Dépannage
+
+### `401 Unauthorized` sur tous les appels
+
+- Vérifiez que `FC_USERNAME` est bien votre **identifiant** WordPress (`user_login`), pas votre email.
+- Vérifiez que `FC_APP_PASSWORD` contient les **espaces** affichés par WordPress (`xxxx xxxx xxxx xxxx xxxx xxxx`) — ils font partie du password.
+- L'Application Password a peut-être été révoqué : créez-en un nouveau.
+
+### `404 Not Found` sur `/wp-json/fluent-community/v2/feeds`
+
+- Le plugin Fluent Community n'est pas installé ou pas activé sur le site cible.
+- Confirmez en ouvrant `https://votre-site.tld/wp-json/` dans un navigateur : vous devez voir `fluent-community/v2` dans la liste `namespaces`.
+
+### `npm run build` échoue avec des erreurs TypeScript
+
+- Vérifiez votre version de Node : `node --version` doit afficher `v20.x` ou plus.
+- Supprimez `node_modules` et `package-lock.json`, puis relancez `npm install`.
+
+### `search_feeds` ne renvoie rien
+
+- La recherche Fluent Community utilise le `LIKE` MySQL — essayez des mots-clés plus simples ou partiels.
+- Vérifiez que le post est **publié** (pas brouillon) et dans un espace auquel votre utilisateur a accès.
+- Les espaces privés ne renvoient des résultats que si l'utilisateur du Application Password en est membre.
+
+### Claude ne voit pas les outils
+
+- Lancez `claude mcp list` pour confirmer l'enregistrement.
+- Redémarrez votre session Claude (fermez complètement l'app et rouvrez).
+- Vérifiez que `dist/index.js` existe (a-t-on bien lancé `npm run build` ?).
+- Le chemin passé à `claude mcp add` doit être **absolu**, pas relatif.
+
+### Le `-e FC_APP_PASSWORD="..."` ne marche pas dans mon shell
+
+- Sous zsh / bash, les espaces dans la valeur **doivent** être protégés par des guillemets doubles.
+- Évitez d'utiliser les guillemets simples : ils empêchent certaines substitutions.
 
 ---
 
