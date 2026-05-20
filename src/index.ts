@@ -2,10 +2,11 @@
 /**
  * Serveur MCP — Fluent Community.
  *
- * Démarre un serveur MCP qui expose 7 outils :
- *   - lecture : list_spaces, search_feeds, list_feeds,
+ * Démarre un serveur MCP qui expose 12 outils :
+ *   - lecture (6) : list_spaces, search_feeds, list_feeds,
  *     get_feed_by_id, get_feed_by_slug, list_feed_comments
- *   - écriture : create_feed
+ *   - écriture (6) : create_feed, update_feed, delete_feed,
+ *     create_comment, delete_comment, react
  * via STDIO, pour usage dans Claude Desktop, Claude Code ou tout client MCP.
  *
  * Configuration via variables d'environnement (voir .env.example) :
@@ -25,6 +26,11 @@ import { getFeedByIdTool } from "./tools/get_feed_by_id.js";
 import { getFeedBySlugTool } from "./tools/get_feed_by_slug.js";
 import { listFeedCommentsTool } from "./tools/list_feed_comments.js";
 import { createFeedTool } from "./tools/create_feed.js";
+import { updateFeedTool } from "./tools/update_feed.js";
+import { deleteFeedTool } from "./tools/delete_feed.js";
+import { createCommentTool } from "./tools/create_comment.js";
+import { deleteCommentTool } from "./tools/delete_comment.js";
+import { reactTool } from "./tools/react.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -35,7 +41,7 @@ async function main(): Promise<void> {
     version: "0.1.0",
   });
 
-  // Enregistrement des 7 outils. On adapte la signature attendue
+  // Enregistrement des 12 outils. On adapte la signature attendue
   // par McpServer.registerTool : (args) => Promise<{content: ...}>.
   server.registerTool(
     listSpacesTool.name,
@@ -77,6 +83,36 @@ async function main(): Promise<void> {
     createFeedTool.name,
     createFeedTool.config,
     async (args) => createFeedTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    updateFeedTool.name,
+    updateFeedTool.config,
+    async (args) => updateFeedTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    deleteFeedTool.name,
+    deleteFeedTool.config,
+    async (args) => deleteFeedTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    createCommentTool.name,
+    createCommentTool.config,
+    async (args) => createCommentTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    deleteCommentTool.name,
+    deleteCommentTool.config,
+    async (args) => deleteCommentTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    reactTool.name,
+    reactTool.config,
+    async (args) => reactTool.handler(args as never, client),
   );
 
   const transport = new StdioServerTransport();

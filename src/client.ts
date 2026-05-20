@@ -95,6 +95,31 @@ export class FluentCommunityClient {
     return (await response.json()) as T;
   }
 
+  /**
+   * DELETE générique. Le plugin n'attend pas de body pour les suppressions
+   * exposées par ce MCP (`/feeds/{id}`, `/feeds/{id}/comments/{cid}`).
+   */
+  private async deleteRequest<T = unknown>(path: string): Promise<T> {
+    const url = new URL(`${this.baseUrl}${path}`);
+    const response = await fetch(url, {
+      method: "DELETE",
+      headers: {
+        Authorization: this.authHeader,
+        Accept: "application/json",
+        "User-Agent": "mcp-fluent-community/0.1.0",
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text().catch(() => "");
+      throw new Error(
+        `Fluent Community API ${response.status} ${response.statusText} on DELETE ${url.pathname}\n${text.slice(0, 800)}`,
+      );
+    }
+
+    return (await response.json()) as T;
+  }
+
   // ------------------------------------------------------------------
   // Endpoints exposés par les outils MCP
   // ------------------------------------------------------------------
@@ -170,5 +195,114 @@ export class FluentCommunityClient {
       content_type: params.content_type,
       topic_ids: params.topic_ids,
     });
+  }
+
+  /**
+   * Met à jour un post existant.
+   * Route plugin : `POST /feeds/{feed_id}` → FeedsController@update.
+   * Le champ `message` (Markdown) est obligatoire côté plugin
+   * (sanitizeAndValidateData). Les autres champs sont optionnels.
+   */
+  updateFeed(
+    feedId: number | string,
+    params: {
+      message: string;
+      title?: string;
+      content_type?: string;
+      topic_ids?: number[];
+      status?: string;
+    },
+  ): Promise<unknown> {
+    return this.postJson(`/feeds/${encodeURIComponent(String(feedId))}`, {
+      message: params.message,
+      title: params.title,
+      content_type: params.content_type,
+      topic_ids: params.topic_ids,
+      status: params.status,
+    });
+  }
+
+  /**
+   * Supprime un post (opération irréversible).
+   * Route plugin : `DELETE /feeds/{feed_id}` → FeedsController@deleteFeed.
+   */
+  deleteFeed(feedId: number | string): Promise<unknown> {
+    return this.deleteRequest(`/feeds/${encodeURIComponent(String(feedId))}`);
+  }
+
+  /**
+   * Crée un commentaire sur un post.
+   * Route plugin : `POST /feeds/{feed_id}/comments` → CommentsController@store.
+   * Côté plugin, le champ texte du commentaire s'appelle `comment` (pas
+   * `message` comme pour les feeds — vérifié dans
+   * CommentsController::validateCommentText).
+   * Paramètres : `message` (Markdown, mappé sur `comment`),
+   * `parent_id` (optionnel, pour réponse en thread).
+   */
+  createComment(
+    feedId: number | string,
+    params: { message: string; parent_id?: number },
+  ): Promise<unknown> {
+    return this.postJson(
+      `/feeds/${encodeURIComponent(String(feedId))}/comments`,
+      {
+        comment: params.message,
+        parent_id: params.parent_id,
+      },
+    );
+  }
+
+  /**
+   * Supprime un commentaire (opération irréversible).
+   * Route plugin : `DELETE /feeds/{feed_id}/comments/{comment_id}`
+   *   → CommentsController@deleteComment.
+   */
+  deleteComment(
+    feedId: number | string,
+    commentId: number | string,
+  ): Promise<unknown> {
+    return this.deleteRequest(
+      `/feeds/${encodeURIComponent(String(feedId))}/comments/${encodeURIComponent(String(commentId))}`,
+    );
+  }
+
+  /**
+   * Réagit à un post (ajoute ou retire une réaction).
+   * Route plugin : `POST /feeds/{feed_id}/react`
+   *   → CommentsController@addOrRemovePostReact.
+   * Body : `react_type` (défaut `like`) ; `remove` (truthy → retrait).
+   */
+  reactToFeed(
+    feedId: number | string,
+    params: { react_type?: string; remove?: boolean },
+  ): Promise<unknown> {
+    return this.postJson(
+      `/feeds/${encodeURIComponent(String(feedId))}/react`,
+      {
+        react_type: params.react_type ?? "like",
+        // Le contrôleur teste `truthy` — envoyer "1"/"" plutôt que bool
+        // pour rester compatible avec les body parsers WP REST.
+        remove: params.remove ? 1 : undefined,
+      },
+    );
+  }
+
+  /**
+   * Réagit à un commentaire (toggle).
+   * Route plugin : `POST /feeds/{feed_id}/comments/{comment_id}/reactions`
+   *   → CommentsController@toggleReaction.
+   * Body : `state` (truthy = ajouter, falsy = retirer).
+   */
+  reactToComment(
+    feedId: number | string,
+    commentId: number | string,
+    params: { state: boolean },
+  ): Promise<unknown> {
+    return this.postJson(
+      `/feeds/${encodeURIComponent(String(feedId))}/comments/${encodeURIComponent(String(commentId))}/reactions`,
+      {
+        state: params.state ? 1 : 0,
+      },
+    );
   }
 }

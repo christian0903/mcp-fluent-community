@@ -1,10 +1,10 @@
 # mcp-fluent-community
 
-Serveur **MCP (Model Context Protocol)** en lecture seule pour [Fluent Community](https://fluentcommunity.co/) — expose les espaces, les posts (`feeds`) et les commentaires d'une instance WordPress à un client MCP (Claude Desktop, Claude Code, etc.).
+Serveur **MCP (Model Context Protocol)** pour [Fluent Community](https://fluentcommunity.co/) — expose les espaces, les posts (`feeds`), les commentaires et les réactions d'une instance WordPress à un client MCP (Claude Desktop, Claude Code, etc.). Lecture et écriture.
 
-Cas d'usage : retrouver, citer et travailler depuis Claude le contenu publié dans une communauté Fluent Community que vous opérez ou dont vous êtes membre administrateur.
+Cas d'usage : retrouver, citer, publier et modérer depuis Claude le contenu d'une communauté Fluent Community que vous opérez.
 
-> Statut : **v0.1.0** — 6 outils MVP en lecture seule. Pas d'écriture, pas de modération.
+> Statut : **v0.3.0** — 12 outils : 6 lecture + 6 écriture (création/édition/suppression de posts et commentaires, réactions). Auto-nettoyage par smoke-test.
 
 ---
 
@@ -23,9 +23,15 @@ npm run build
 cp .env.example .env
 # Éditez .env avec votre site, votre login WP et votre Application Password
 
-# 3. Valider
+# 3. Valider (lecture seule par défaut)
 npx tsx scripts/smoke-test.ts
 # Sortie attendue : 6/6 OK
+
+# 3 bis. Valider aussi l'écriture en round-trip auto-nettoyant (opt-in).
+#        Pointe vers un space privé/discret (ex: "test" ou ton bac à sable).
+#        Le post et le commentaire de test sont supprimés en fin de séquence.
+FC_TEST_SPACE_SLUG=test npx tsx scripts/smoke-test.ts
+# Sortie attendue : 13/13 OK
 
 # 4. Brancher dans Claude Code (chemin absolu obligatoire)
 claude mcp add fluent-community \
@@ -44,6 +50,8 @@ Puis redémarrez votre session Claude — les outils apparaissent en `mcp__fluen
 
 ## Outils exposés
 
+### Lecture
+
 | Outil MCP | Endpoint REST sous-jacent | Description |
 |---|---|---|
 | `list_spaces` | `GET /spaces` | Énumère les espaces (groupes / catégories) |
@@ -53,7 +61,20 @@ Puis redémarrez votre session Claude — les outils apparaissent en `mcp__fluen
 | `get_feed_by_slug` | `GET /feeds/{slug}/by-slug` | Lit un post complet par slug |
 | `list_feed_comments` | `GET /feeds/{id}/comments` | Liste les commentaires d'un post |
 
-Tous les outils renvoient une **projection résumée** (id, titre, slug, auteur, espace, dates, permalink, contenu HTML, contenu strippé en texte) plutôt que la réponse brute de l'API — pour faciliter la lecture par le modèle.
+### Écriture
+
+| Outil MCP | Endpoint REST sous-jacent | Description |
+|---|---|---|
+| `create_feed` | `POST /feeds/` | Crée un post dans un espace |
+| `update_feed` | `POST /feeds/{id}` | Modifie un post existant (statuts éditables uniquement) |
+| `delete_feed` | `DELETE /feeds/{id}` | **Supprime un post (irréversible)** |
+| `create_comment` | `POST /feeds/{id}/comments` | Commente un post (avec thread via `parent_id`) |
+| `delete_comment` | `DELETE /feeds/{id}/comments/{cid}` | **Supprime un commentaire (irréversible)** |
+| `react` | `POST /feeds/{id}/react` ou `/feeds/{id}/comments/{cid}/reactions` | Ajoute / retire une réaction sur un post ou un commentaire |
+
+Les outils de lecture renvoient une **projection résumée** (id, titre, slug, auteur, espace, dates, permalink, contenu HTML, contenu strippé en texte) plutôt que la réponse brute de l'API — pour faciliter la lecture par le modèle. Les outils d'écriture renvoient l'objet créé/modifié résumé + le message serveur.
+
+> Les outils marqués irréversible portent une mention explicite dans leur description côté MCP — un agent ne doit pas les appeler sans confirmation explicite de l'utilisateur.
 
 ---
 

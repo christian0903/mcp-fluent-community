@@ -1,7 +1,7 @@
 {
   "name": "mcp-fluent-community",
-  "version": "0.2.0",
-  "description": "Serveur MCP pour Fluent Community (WordPress) — lecture des espaces, posts et commentaires + création de posts (`create_feed`), pour un client MCP (Claude Desktop, Claude Code).",
+  "version": "0.3.0",
+  "description": "Serveur MCP pour Fluent Community (WordPress) — lecture (espaces, posts, commentaires) + écriture (création/édition/suppression de posts et commentaires, réactions). Pour Claude Desktop, Claude Code et tout client MCP.",
   "license": "MIT",
   "author": "Christian Vanhenten",
   "repository": {
