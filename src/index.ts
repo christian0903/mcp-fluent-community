@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 /**
- * Serveur MCP — Fluent Community (lecture seule).
+ * Serveur MCP — Fluent Community.
  *
- * Démarre un serveur MCP qui expose 6 outils (list_spaces, search_feeds,
- * list_feeds, get_feed_by_id, get_feed_by_slug, list_feed_comments) via
- * STDIO, pour usage dans Claude Desktop, Claude Code ou tout client MCP.
+ * Démarre un serveur MCP qui expose 7 outils :
+ *   - lecture : list_spaces, search_feeds, list_feeds,
+ *     get_feed_by_id, get_feed_by_slug, list_feed_comments
+ *   - écriture : create_feed
+ * via STDIO, pour usage dans Claude Desktop, Claude Code ou tout client MCP.
  *
  * Configuration via variables d'environnement (voir .env.example) :
  *   FC_SITE_URL, FC_USERNAME, FC_APP_PASSWORD
@@ -22,6 +24,7 @@ import { listFeedsTool } from "./tools/list_feeds.js";
 import { getFeedByIdTool } from "./tools/get_feed_by_id.js";
 import { getFeedBySlugTool } from "./tools/get_feed_by_slug.js";
 import { listFeedCommentsTool } from "./tools/list_feed_comments.js";
+import { createFeedTool } from "./tools/create_feed.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -32,7 +35,7 @@ async function main(): Promise<void> {
     version: "0.1.0",
   });
 
-  // Enregistrement des 6 outils MVP. On adapte la signature attendue
+  // Enregistrement des 7 outils. On adapte la signature attendue
   // par McpServer.registerTool : (args) => Promise<{content: ...}>.
   server.registerTool(
     listSpacesTool.name,
@@ -68,6 +71,12 @@ async function main(): Promise<void> {
     listFeedCommentsTool.name,
     listFeedCommentsTool.config,
     async (args) => listFeedCommentsTool.handler(args as never, client),
+  );
+
+  server.registerTool(
+    createFeedTool.name,
+    createFeedTool.config,
+    async (args) => createFeedTool.handler(args as never, client),
   );
 
   const transport = new StdioServerTransport();

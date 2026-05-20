@@ -1,10 +1,17 @@
 /**
- * Smoke test : valide les 6 outils MVP contre l'instance Fluent Community
+ * Smoke test : valide les outils du MCP fluent-community contre l'instance
  * configurée par les variables d'environnement (FC_SITE_URL, FC_USERNAME,
  * FC_APP_PASSWORD).
  *
- * Usage :
- *   tsx scripts/smoke-test.ts
+ * Couvre par défaut les 6 outils de lecture. Le test de `create_feed` n'est
+ * exécuté que si `FC_TEST_SPACE_SLUG` est défini (opt-in explicite pour
+ * éviter toute écriture accidentelle dans un espace réel). Exemple :
+ *
+ *   FC_TEST_SPACE_SLUG=mon-bac-a-sable tsx scripts/smoke-test.ts
+ *
+ * Le post de test est créé puis confirmé via `get_feed_by_id`. Sa suppression
+ * doit être faite manuellement (l'API `DELETE /feeds/{id}` n'est pas encore
+ * exposée par ce MCP).
  *
  * Exit code 0 si tous les checks passent, 1 sinon. Pensé pour être lancé
  * en local par le développeur, pas en CI publique (le `.env` n'est pas
@@ -46,6 +53,7 @@ import { listFeedsTool } from "../src/tools/list_feeds.js";
 import { getFeedByIdTool } from "../src/tools/get_feed_by_id.js";
 import { getFeedBySlugTool } from "../src/tools/get_feed_by_slug.js";
 import { listFeedCommentsTool } from "../src/tools/list_feed_comments.js";
+import { createFeedTool } from "../src/tools/create_feed.js";
 
 type Result = { name: string; ok: boolean; detail: string };
 
@@ -200,6 +208,75 @@ async function run(): Promise<void> {
       name: "list_feed_comments",
       ok: false,
       detail: "skipped",
+    });
+  }
+
+  // 7. create_feed — opt-in via FC_TEST_SPACE_SLUG
+  const testSpaceSlug = process.env.FC_TEST_SPACE_SLUG?.trim();
+  if (testSpaceSlug) {
+    const stamp = new Date().toISOString();
+    const message = `Smoke-test MCP fluent-community — ${stamp}\n\nCe post est généré automatiquement pour valider \`create_feed\`. Il peut être supprimé.`;
+    let createdId: number | null = null;
+    try {
+      const r = await createFeedTool.handler(
+        { message, space: testSpaceSlug, title: `Smoke-test ${stamp}` },
+        client,
+      );
+      const parsed = JSON.parse(r.content[0]!.text) as {
+        feed: { id: number | null; permalink: string | null };
+        server_message: string | null;
+      };
+      createdId = parsed.feed.id ? Number(parsed.feed.id) : null;
+      results.push({
+        name: `create_feed("${testSpaceSlug}")`,
+        ok: createdId !== null && Number.isFinite(createdId),
+        detail: createdId
+          ? `post #${createdId} créé — ${parsed.feed.permalink ?? "(pas de permalink)"}`
+          : `réponse sans id : ${parsed.server_message ?? "(message vide)"}`,
+      });
+    } catch (err) {
+      results.push({
+        name: `create_feed("${testSpaceSlug}")`,
+        ok: false,
+        detail: String(err),
+      });
+    }
+
+    // Round-trip : on relit le post créé via get_feed_by_id
+    if (createdId !== null) {
+      try {
+        const r = await getFeedByIdTool.handler({ id: createdId }, client);
+        const parsed = JSON.parse(r.content[0]!.text) as {
+          feed: { id: number | null; content_text: string };
+        };
+        const ok =
+          parsed.feed.id !== null &&
+          Number(parsed.feed.id) === createdId &&
+          parsed.feed.content_text.includes("Smoke-test");
+        results.push({
+          name: `create_feed roundtrip get_feed_by_id(${createdId})`,
+          ok,
+          detail: ok
+            ? `relu OK (${parsed.feed.content_text.length} chars)`
+            : `mismatch id=${parsed.feed.id}`,
+        });
+      } catch (err) {
+        results.push({
+          name: `create_feed roundtrip get_feed_by_id(${createdId})`,
+          ok: false,
+          detail: String(err),
+        });
+      }
+      console.log(
+        `\n  >> post de test laissé en place — id=${createdId} (space=${testSpaceSlug}). À supprimer manuellement si besoin.`,
+      );
+    }
+  } else {
+    results.push({
+      name: "create_feed",
+      ok: true,
+      detail:
+        "skipped (opt-in) — définir FC_TEST_SPACE_SLUG pour activer l'écriture",
     });
   }
 
